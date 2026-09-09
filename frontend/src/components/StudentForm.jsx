@@ -9,23 +9,34 @@ function StudentForm({ onSuccess }) {
     name: '',
     class: 'BE',
     division: 'A',
-    theoryAttendance: { T1: 0, T2: 0, T3: 0, T4: 0 },
-    practicalAttendance: { P1: 0, P2: 0 }
+    theoryAttendance: {
+      T1: { lectures: 0, present: 0 }, T2: { lectures: 0, present: 0 },
+      T3: { lectures: 0, present: 0 }, T4: { lectures: 0, present: 0 }
+    },
+    practicalAttendance: {
+      P1: { lectures: 0, present: 0 }, P2: { lectures: 0, present: 0 }
+    }
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name.startsWith('theory_')) {
-      const key = name.split('_')[1];
+      const [, key, field] = name.split('_');
       setStudent({
         ...student,
-        theoryAttendance: { ...student.theoryAttendance, [key]: parseInt(value) || 0 }
+        theoryAttendance: {
+          ...student.theoryAttendance,
+          [key]: { ...student.theoryAttendance[key], [field]: parseInt(value, 10) || 0 }
+        }
       });
     } else if (name.startsWith('practical_')) {
-      const key = name.split('_')[1];
+      const [, key, field] = name.split('_');
       setStudent({
         ...student,
-        practicalAttendance: { ...student.practicalAttendance, [key]: parseInt(value) || 0 }
+        practicalAttendance: {
+          ...student.practicalAttendance,
+          [key]: { ...student.practicalAttendance[key], [field]: parseInt(value, 10) || 0 }
+        }
       });
     } else {
       setStudent({ ...student, [name]: value });
@@ -65,36 +76,26 @@ function StudentForm({ onSuccess }) {
           </div>
         </div>
 
-        <h3>Theory Attendance (%)</h3>
+        <h3>Theory Attendance (Lectures / Present)</h3>
         <div className="form-row">
-          <div className="form-group">
-            <label>T1 - DOE</label>
-            <input type="number" name="theory_T1" value={student.theoryAttendance.T1} onChange={handleChange} min="0" max="100" />
-          </div>
-          <div className="form-group">
-            <label>T2 - LSCM</label>
-            <input type="number" name="theory_T2" value={student.theoryAttendance.T2} onChange={handleChange} min="0" max="100" />
-          </div>
-          <div className="form-group">
-            <label>T3 - PPE</label>
-            <input type="number" name="theory_T3" value={student.theoryAttendance.T3} onChange={handleChange} min="0" max="100" />
-          </div>
-          <div className="form-group">
-            <label>T4 - AIML</label>
-            <input type="number" name="theory_T4" value={student.theoryAttendance.T4} onChange={handleChange} min="0" max="100" />
-          </div>
+          {[['T1', 'T1 - DOE'], ['T2', 'T2 - LSCM'], ['T3', 'T3 - PPE'], ['T4', 'T4 - AIML']].map(([key, label]) => (
+            <div className="form-group" key={key}>
+              <label>{label}</label>
+              <input type="number" name={`theory_${key}_lectures`} value={student.theoryAttendance[key].lectures} onChange={handleChange} min="0" placeholder="Lectures" />
+              <input type="number" name={`theory_${key}_present`} value={student.theoryAttendance[key].present} onChange={handleChange} min="0" max={student.theoryAttendance[key].lectures} placeholder="Present" />
+            </div>
+          ))}
         </div>
 
-        <h3>Practical Attendance (%)</h3>
+        <h3>Practical Attendance (Lectures / Present)</h3>
         <div className="form-row">
-          <div className="form-group">
-            <label>P1 - DOE</label>
-            <input type="number" name="practical_P1" value={student.practicalAttendance.P1} onChange={handleChange} min="0" max="100" />
-          </div>
-          <div className="form-group">
-            <label>P2 - PPE</label>
-            <input type="number" name="practical_P2" value={student.practicalAttendance.P2} onChange={handleChange} min="0" max="100" />
-          </div>
+          {[['P1', 'P1 - DOE'], ['P2', 'P2 - PPE']].map(([key, label]) => (
+            <div className="form-group" key={key}>
+              <label>{label}</label>
+              <input type="number" name={`practical_${key}_lectures`} value={student.practicalAttendance[key].lectures} onChange={handleChange} min="0" placeholder="Lectures" />
+              <input type="number" name={`practical_${key}_present`} value={student.practicalAttendance[key].present} onChange={handleChange} min="0" max={student.practicalAttendance[key].lectures} placeholder="Present" />
+            </div>
+          ))}
         </div>
 
         <button type="submit">Add Student</button>

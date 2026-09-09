@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { formatAttendance } from '../utils/attendance';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -166,12 +167,12 @@ function LetterContent({ letterId }) {
                 <td>1</td>
                 <td>{student.rollNo}</td>
                 <td>{student.name}</td>
-                <td>{student.theoryAttendance.T1}</td>
-                <td>{student.theoryAttendance.T2}</td>
-                <td>{student.theoryAttendance.T3}</td>
-                <td>{student.theoryAttendance.T4}</td>
-                <td>{student.practicalAttendance.P1}</td>
-                <td>{student.practicalAttendance.P2}</td>
+                <td>{formatAttendance(student.theoryAttendance.T1)}</td>
+                <td>{formatAttendance(student.theoryAttendance.T2)}</td>
+                <td>{formatAttendance(student.theoryAttendance.T3)}</td>
+                <td>{formatAttendance(student.theoryAttendance.T4)}</td>
+                <td>{formatAttendance(student.practicalAttendance.P1)}</td>
+                <td>{formatAttendance(student.practicalAttendance.P2)}</td>
               </tr>
             </tbody>
           </table>

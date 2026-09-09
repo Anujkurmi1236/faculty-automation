@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { formatAttendance } from '../utils/attendance';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -103,13 +104,13 @@ function LetterGenerator({ selectedStudent, onGenerate }) {
               <h4>Theory</h4>
               <table>
                 <thead>
-                  <tr><th>Subject</th><th>%</th></tr>
+                  <tr><th>Subject</th><th>Lectures</th><th>Present</th><th>Attendance</th></tr>
                 </thead>
                 <tbody>
-                  <tr><td>T1 (DOE)</td><td>{student.theoryAttendance.T1}</td></tr>
-                  <tr><td>T2 (LSCM)</td><td>{student.theoryAttendance.T2}</td></tr>
-                  <tr><td>T3 (PPE)</td><td>{student.theoryAttendance.T3}</td></tr>
-                  <tr><td>T4 (AIML)</td><td>{student.theoryAttendance.T4}</td></tr>
+                  <tr><td>T1 (DOE)</td><td>{student.theoryAttendance.T1.lectures}</td><td>{student.theoryAttendance.T1.present}</td><td>{formatAttendance(student.theoryAttendance.T1)}</td></tr>
+                  <tr><td>T2 (LSCM)</td><td>{student.theoryAttendance.T2.lectures}</td><td>{student.theoryAttendance.T2.present}</td><td>{formatAttendance(student.theoryAttendance.T2)}</td></tr>
+                  <tr><td>T3 (PPE)</td><td>{student.theoryAttendance.T3.lectures}</td><td>{student.theoryAttendance.T3.present}</td><td>{formatAttendance(student.theoryAttendance.T3)}</td></tr>
+                  <tr><td>T4 (AIML)</td><td>{student.theoryAttendance.T4.lectures}</td><td>{student.theoryAttendance.T4.present}</td><td>{formatAttendance(student.theoryAttendance.T4)}</td></tr>
                 </tbody>
               </table>
             </div>
@@ -117,11 +118,11 @@ function LetterGenerator({ selectedStudent, onGenerate }) {
               <h4>Practical</h4>
               <table>
                 <thead>
-                  <tr><th>Subject</th><th>%</th></tr>
+                  <tr><th>Subject</th><th>Lectures</th><th>Present</th><th>Attendance</th></tr>
                 </thead>
                 <tbody>
-                  <tr><td>P1 (DOE)</td><td>{student.practicalAttendance.P1}</td></tr>
-                  <tr><td>P2 (PPE)</td><td>{student.practicalAttendance.P2}</td></tr>
+                  <tr><td>P1 (DOE)</td><td>{student.practicalAttendance.P1.lectures}</td><td>{student.practicalAttendance.P1.present}</td><td>{formatAttendance(student.practicalAttendance.P1)}</td></tr>
+                  <tr><td>P2 (PPE)</td><td>{student.practicalAttendance.P2.lectures}</td><td>{student.practicalAttendance.P2.present}</td><td>{formatAttendance(student.practicalAttendance.P2)}</td></tr>
                 </tbody>
               </table>
             </div>
@@ -210,12 +211,12 @@ function LetterViewContent({ letter, student }) {
                 <td>1</td>
                 <td>{student.rollNo}</td>
                 <td>{student.name}</td>
-                <td>{student.theoryAttendance.T1}</td>
-                <td>{student.theoryAttendance.T2}</td>
-                <td>{student.theoryAttendance.T3}</td>
-                <td>{student.theoryAttendance.T4}</td>
-                <td>{student.practicalAttendance.P1}</td>
-                <td>{student.practicalAttendance.P2}</td>
+                <td>{formatAttendance(student.theoryAttendance.T1)}</td>
+                <td>{formatAttendance(student.theoryAttendance.T2)}</td>
+                <td>{formatAttendance(student.theoryAttendance.T3)}</td>
+                <td>{formatAttendance(student.theoryAttendance.T4)}</td>
+                <td>{formatAttendance(student.practicalAttendance.P1)}</td>
+                <td>{formatAttendance(student.practicalAttendance.P2)}</td>
               </tr>
             </tbody>
           </table>

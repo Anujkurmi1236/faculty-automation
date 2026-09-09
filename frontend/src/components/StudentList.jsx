@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { calculateAverageAttendance } from '../utils/attendance';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -55,8 +56,8 @@ function StudentList({ onSelectStudent }) {
           </thead>
           <tbody>
             {students.map((student) => {
-              const theoryAvg = Object.values(student.theoryAttendance).reduce((a, b) => a + b, 0) / 4;
-              const practicalAvg = Object.values(student.practicalAttendance).reduce((a, b) => a + b, 0) / 2;
+              const theoryAvg = calculateAverageAttendance(student.theoryAttendance);
+              const practicalAvg = calculateAverageAttendance(student.practicalAttendance);
               return (
                 <tr key={student._id}>
                   <td>{student.rollNo}</td>

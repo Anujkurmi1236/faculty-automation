@@ -1,6 +1,14 @@
-import DefaulterLetter from '../models/defaulter_letter';
-import Student from '../models/student';
+import DefaulterLetter from '../models/defaulter_letter.js';
+import Student from '../models/student.js';
 import { v4 as uuidv4 } from 'uuid';
+
+const calculateAttendance = ({ lectures = 0, present = 0 } = {}) => (
+  lectures > 0 ? (present / lectures) * 100 : 0
+);
+
+const calculateAttendanceData = (attendance = {}) => Object.fromEntries(
+  Object.entries(attendance).map(([subject, values]) => [subject, calculateAttendance(values)])
+);
 
 export const generateLetter = async (req, res) => {
   try {
@@ -21,8 +29,8 @@ export const generateLetter = async (req, res) => {
       to: student.name,
       parentName: 'Parent/Guardian',
       attendanceData: {
-        theory: student.theoryAttendance,
-        practical: student.practicalAttendance
+        theory: calculateAttendanceData(student.theoryAttendance),
+        practical: calculateAttendanceData(student.practicalAttendance)
       }
     });
 

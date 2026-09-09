@@ -1,122 +1,90 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import React, { useState } from 'react';
+import StudentForm from './components/StudentForm';
+import StudentList from './components/StudentList';
+import LetterGenerator from './components/LetterGenerator';
+import LetterView from './components/LetterView';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [activeTab, setActiveTab] = useState('students');
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+    <div className="container">
+      <h1>AF-55 Defaulter Letter System</h1>
+      <div className="nav">
+        <button 
+          className={activeTab === 'students' ? 'active' : ''}
+          onClick={() => setActiveTab('students')}
+          style={{ 
+            background: 'none', 
+            color: activeTab === 'students' ? '#2c3e50' : '#7f8c8d',
+            borderBottom: activeTab === 'students' ? '2px solid #2c3e50' : '2px solid transparent',
+            padding: '4px 0'
+          }}
         >
-          Count is {count}
+          Students
         </button>
-      </section>
+        <button 
+          className={activeTab === 'add' ? 'active' : ''}
+          onClick={() => setActiveTab('add')}
+          style={{ 
+            background: 'none', 
+            color: activeTab === 'add' ? '#2c3e50' : '#7f8c8d',
+            borderBottom: activeTab === 'add' ? '2px solid #2c3e50' : '2px solid transparent',
+            padding: '4px 0'
+          }}
+        >
+          Add Student
+        </button>
+        <button 
+          className={activeTab === 'letter' ? 'active' : ''}
+          onClick={() => setActiveTab('letter')}
+          style={{ 
+            background: 'none', 
+            color: activeTab === 'letter' ? '#2c3e50' : '#7f8c8d',
+            borderBottom: activeTab === 'letter' ? '2px solid #2c3e50' : '2px solid transparent',
+            padding: '4px 0'
+          }}
+        >
+          Generate Letter
+        </button>
+        <button 
+          className={activeTab === 'view' ? 'active' : ''}
+          onClick={() => setActiveTab('view')}
+          style={{ 
+            background: 'none', 
+            color: activeTab === 'view' ? '#2c3e50' : '#7f8c8d',
+            borderBottom: activeTab === 'view' ? '2px solid #2c3e50' : '2px solid transparent',
+            padding: '4px 0'
+          }}
+        >
+          View Letters
+        </button>
+      </div>
 
-      <div className="ticks"></div>
+      {activeTab === 'students' && (
+        <StudentList onSelectStudent={(student) => {
+          setSelectedStudent(student);
+          setActiveTab('letter');
+        }} />
+      )}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      {activeTab === 'add' && (
+        <StudentForm onSuccess={() => setActiveTab('students')} />
+      )}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      {activeTab === 'letter' && (
+        <LetterGenerator 
+          selectedStudent={selectedStudent}
+          onGenerate={(letter) => {
+            setActiveTab('view');
+          }}
+        />
+      )}
+
+      {activeTab === 'view' && <LetterView />}
+    </div>
+  );
 }
 
-export default App
+export default App;
