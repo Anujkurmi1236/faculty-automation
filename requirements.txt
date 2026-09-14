@@ -1,0 +1,6 @@
+customtkinter
+python-docx
+openpyxl
+docx2pdf
+reportlab
+pyinstaller
