@@ -2,22 +2,6 @@
 app.py
 ------
 Defaulter Letter Generator - desktop GUI (customtkinter).
-
-Changes vs. the original version:
-  * Attendance tab now shows a real pivoted table (Roll No | Name | one
-    column per subject) with each student's percentage, colour-coded red
-    when below the threshold - not just an empty Roll/Name list.
-  * "Add / Edit Attendance" - double-click a student row (or pick one and
-    click the button) to open a form with one entry box per subject,
-    pre-filled with their current percentage, saved in a single
-    transaction. This covers manual entry, which the Excel importer alone
-    didn't.
-  * Threshold changes now live-refresh the attendance table's colour
-    coding and the defaulter list, instead of only affecting "Generate".
-  * Centralised error handling (`_safe`) so a bad Excel file or a missing
-    template shows one clear message box instead of a raw traceback.
-  * Logging to a rotating file next to the exe, useful for diagnosing
-    issues on a faculty member's machine after the app is packaged.
 """
 from __future__ import annotations
 
@@ -28,8 +12,7 @@ import os
 import sys
 import datetime
 import tempfile
-from typing import Any, Optional
-from typing import cast
+from typing import Any, Optional, cast
 
 import customtkinter as ctk
 from tkinter import filedialog, messagebox, ttk
@@ -40,9 +23,8 @@ import database
 import pdf_utils
 
 
+# ------------------------------------------------------------------ helpers
 def resource_path(rel: str) -> str:
-    """Resolve a bundled resource, working both from source and from a
-    PyInstaller --onefile exe (where data files unpack to sys._MEIPASS)."""
     base = getattr(sys, "_MEIPASS", None)  # type: ignore[attr-defined]
     if not base:
         base = os.path.abspath(".")
@@ -68,18 +50,8 @@ logging.basicConfig(
 )
 log = logging.getLogger("defaulter_app.ui")
 
-DEFAULT_SUBJECTS = [
-    ("T1", "Design of Experiments (DOE)", "Theory"),
-    ("T2", "Logistics and Supply Chain Management (LSCM)", "Theory"),
-    ("T3", "Power Plant Engineering (PPE)", "Theory"),
-    ("T4", "AIML", "Theory"),
-    ("P1", "DOE", "Practical"),
-    ("P2", "PPE", "Practical"),
-]
-
 
 def to_float(value: Any) -> Optional[float]:
-    """Safe float conversion for openpyxl cell values."""
     if value is None:
         return None
     try:
@@ -89,11 +61,16 @@ def to_float(value: Any) -> Optional[float]:
 
 
 def _safe(fn):
-    """Decorator: log the full traceback, show a friendly message box."""
+    """Decorator: log full traceback and show a friendly message box.
+
+    Works for BOTH bound methods and nested closures. The wrapper is a
+    transparent pass-through — it does not inject `self`, because nested
+    functions like `_save()` inside a Toplevel don't have one.
+    """
     @functools.wraps(fn)
-    def wrapper(self, *args, **kwargs):
+    def wrapper(*args, **kwargs):
         try:
-            return fn(self, *args, **kwargs)
+            return fn(*args, **kwargs)
         except Exception as e:
             log.exception("Error in %s", fn.__name__)
             messagebox.showerror("Something went wrong", str(e))
@@ -101,22 +78,14 @@ def _safe(fn):
 
 
 def _show_modal(win: "ctk.CTkToplevel") -> None:
-    """Make a Toplevel modal safely.
-
-    grab_set() requires the window to already be viewable (mapped by the
-    window manager). Calling it immediately after creating the window is
-    racy - on some window managers / after a previous grab-holding window
-    has just closed, the new window isn't mapped yet and grab_set() raises
-    'TclError: grab failed: window not viewable'. wait_visibility() blocks
-    until the window actually receives a Visibility event, which makes the
-    following grab_set() reliable.
-    """
+    """Make a Toplevel modal safely (avoids 'window not viewable')."""
     win.transient(cast("ctk.CTk", win.master))
     win.wait_visibility()
     win.grab_set()
     win.focus_force()
 
 
+# ------------------------------------------------------------------ App
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -157,8 +126,7 @@ class App(ctk.CTk):
         self.build_history_tab()
 
         database.init_db()
-        if not database.fetch_all_subjects():
-            self.seed_default_subjects()
+        # No default subject seeding - user creates them in Subjects tab.
         self.refresh_students()
         self.refresh_subjects()
         self.refresh_attendance_table()
@@ -169,12 +137,6 @@ class App(ctk.CTk):
             return float(self.threshold.get())
         except ValueError:
             return 75.0
-
-    def seed_default_subjects(self):
-        existing = {s["code"] for s in database.fetch_all_subjects()}
-        for code, name, stype in DEFAULT_SUBJECTS:
-            if code not in existing:
-                database.add_subject(code, name, stype)
 
     # ============================================================ STUDENTS
     def build_students_tab(self):
@@ -197,7 +159,7 @@ class App(ctk.CTk):
         cols = ("id", "roll_no", "student_name", "class", "div",
                 "parent_name", "parent_contact")
         self.student_tree = ttk.Treeview(self.tab_students, columns=cols,
-                                          show="headings", height=18)
+                                         show="headings", height=18)
         headings = ["ID", "Roll No", "Name", "Class", "Div", "Parent", "Contact"]
         for c, h in zip(cols, headings):
             self.student_tree.heading(c, text=h)
@@ -258,9 +220,10 @@ class App(ctk.CTk):
             msg += f"\n{skipped} row(s) skipped (missing roll no / name)."
         messagebox.showinfo("Imported", msg)
 
+    @_safe
     def export_student_template(self):
         path = filedialog.asksaveasfilename(defaultextension=".xlsx",
-                                             initialfile="students_template.xlsx")
+                                            initialfile="students_template.xlsx")
         if not path:
             return
         wb = Workbook()
@@ -317,7 +280,7 @@ class App(ctk.CTk):
         fields["roll_no"].focus_set()
 
         @_safe
-        def save(_self=self):
+        def _save():
             data = {k: v.get().strip() for k, v in fields.items()}
             if not data["roll_no"] or not data["student_name"]:
                 messagebox.showwarning("Missing", "Roll No and Name required.")
@@ -332,10 +295,10 @@ class App(ctk.CTk):
 
         btn_frame = ctk.CTkFrame(win, fg_color="transparent")
         btn_frame.pack(pady=20)
-        ctk.CTkButton(btn_frame, text="Save", width=140, command=save).grid(row=0, column=0, padx=8)
+        ctk.CTkButton(btn_frame, text="Save", width=140, command=_save).grid(row=0, column=0, padx=8)
         ctk.CTkButton(btn_frame, text="Cancel", width=100, fg_color="gray40",
                       command=win.destroy).grid(row=0, column=1, padx=8)
-        win.bind("<Return>", lambda e: save())
+        win.bind("<Return>", lambda e: _save())
 
     def delete_selected_student(self):
         sel = self.student_tree.selection()
@@ -433,8 +396,8 @@ class App(ctk.CTk):
         sid_txt = self.subj_id.get().strip()
         if not sid_txt:
             messagebox.showwarning("Missing ID",
-                                    "Select a subject from the table first "
-                                    "(or double-click it), then edit and click Update.")
+                                   "Select a subject from the table first "
+                                   "(or double-click it), then edit and click Update.")
             return
         sid = int(sid_txt)
         code = self.subj_code.get().strip()
@@ -462,8 +425,8 @@ class App(ctk.CTk):
         sid = int(self.subj_tree.item(sel[0])["values"][0])
         code = self.subj_tree.item(sel[0])["values"][1]
         if not messagebox.askyesno("Confirm Delete",
-                                    f"Delete subject #{sid} ({code})?\n"
-                                    "Existing attendance records for it are kept."):
+                                   f"Delete subject #{sid} ({code})?\n"
+                                   "Existing attendance records for it are kept."):
             return
         database.delete_subject(sid)
         self.refresh_subjects()
@@ -484,13 +447,10 @@ class App(ctk.CTk):
         ctk.CTkLabel(top, text="(double-click a row to edit that student)",
                      text_color="gray50").pack(side="left", padx=10)
 
-        # Columns are rebuilt dynamically in refresh_attendance_table() since
-        # the subject list can change.
         self.att_tree = ttk.Treeview(self.tab_attendance, show="headings", height=18)
         self.att_tree.pack(fill="both", expand=True, padx=10, pady=10)
         self.att_tree.bind("<Double-1>", lambda e: self.open_edit_attendance())
 
-        style = ttk.Style()
         self.att_tree.tag_configure("defaulter", foreground="#c0392b")
         self.att_tree.tag_configure("ok", foreground="#1e8449")
 
@@ -530,7 +490,7 @@ class App(ctk.CTk):
                     row_vals.append(f"{value['percent']:g}")
             tag = "defaulter" if is_defaulter else "ok"
             self.att_tree.insert("", "end", iid=str(entry["id"]),
-                                  values=row_vals, tags=(tag,))
+                                 values=row_vals, tags=(tag,))
 
     @_safe
     def import_attendance_excel(self):
@@ -544,14 +504,13 @@ class App(ctk.CTk):
             return
 
         headers = [str(c.value).strip() if c.value else "" for c in ws[1]]
-        # Expected: Roll No | Student Name | T1 Present | T1 Lectures | ...
         subject_cols = {}
         for i in range(2, len(headers) - 1, 2):
             code = headers[i].removesuffix(" Present").strip()
             if code and headers[i + 1].lower().endswith("lectures"):
                 subject_cols[i] = (code, i + 1)
 
-        count, not_found = 0, 0
+        count, not_found, invalid = 0, 0, 0
         for row in ws.iter_rows(min_row=2, values_only=True):
             if not row or row[0] is None:
                 continue
@@ -564,20 +523,27 @@ class App(ctk.CTk):
                 if lectures_idx < len(row):
                     attended = to_float(row[present_idx])
                     lectures = to_float(row[lectures_idx])
-                    if attended is not None and lectures is not None:
+                    if attended is None or lectures is None:
+                        continue
+                    try:
                         database.set_attendance_lectures(
                             student["id"], code, int(attended), int(lectures)
                         )
+                    except ValueError:
+                        invalid += 1
             count += 1
         self.refresh_attendance_table()
         msg = f"Attendance updated for {count} students."
         if not_found:
-            msg += f"\n{not_found} row(s) skipped (roll no not found - add the student first)."
+            msg += f"\n{not_found} row(s) skipped (roll no not found)."
+        if invalid:
+            msg += f"\n{invalid} value(s) skipped (invalid attended/lectures)."
         messagebox.showinfo("Imported", msg)
 
+    @_safe
     def export_attendance_template(self):
         path = filedialog.asksaveasfilename(defaultextension=".xlsx",
-                                             initialfile="attendance_template.xlsx")
+                                            initialfile="attendance_template.xlsx")
         if not path:
             return
         wb = Workbook()
@@ -593,16 +559,13 @@ class App(ctk.CTk):
             values = []
             for code in subs:
                 row = current.get(code)
-                values.extend([row["attended"] if row else "",
-                               row["lectures"] if row else ""])
+                values.extend([row["attended"] if row and row["attended"] is not None else "",
+                               row["lectures"] if row and row["lectures"] is not None else ""])
             ws.append([s["roll_no"], s["student_name"]] + values)
         wb.save(path)
         messagebox.showinfo("Saved", f"Template saved: {path}")
 
     def open_edit_attendance(self):
-        """Manual entry: pick a student (if none selected, ask first), then
-        show one editable field per subject, pre-filled with the current
-        percentage, and save them all in one go."""
         sel = self.att_tree.selection()
         if sel:
             student_id = int(sel[0])
@@ -613,6 +576,10 @@ class App(ctk.CTk):
                 return
             student_id = student["id"]
 
+        if student is None:
+            messagebox.showwarning("Not found", "Student record could not be loaded.")
+            return
+
         subjects = database.fetch_all_subjects()
         if not subjects:
             messagebox.showinfo("No Subjects", "Add a subject first (Subjects tab).")
@@ -621,7 +588,7 @@ class App(ctk.CTk):
 
         win = ctk.CTkToplevel(self)
         win.title(f"Attendance — {student['student_name']} ({student['roll_no']})")
-        win.geometry("520x" + str(140 + 46 * len(subjects) + 80))
+        win.geometry("560x" + str(160 + 46 * len(subjects)))
         win.resizable(False, False)
         _show_modal(win)
 
@@ -634,7 +601,8 @@ class App(ctk.CTk):
         for s in subjects:
             row = ctk.CTkFrame(win, fg_color="transparent")
             row.pack(fill="x", padx=20, pady=4)
-            ctk.CTkLabel(row, text=f"{s['code']} - {s['name']}", width=230, anchor="w").pack(side="left")
+            ctk.CTkLabel(row, text=f"{s['code']} - {s['name']}",
+                         width=250, anchor="w").pack(side="left")
             attended = ctk.CTkEntry(row, width=80, placeholder_text="Present")
             lectures = ctk.CTkEntry(row, width=80, placeholder_text="Lectures")
             old = current.get(s["code"])
@@ -647,7 +615,7 @@ class App(ctk.CTk):
             entries[s["code"]] = (attended, lectures)
 
         @_safe
-        def save(_self=self):
+        def _save():
             values = {}
             for code, (attended_entry, lectures_entry) in entries.items():
                 attended_text = attended_entry.get().strip()
@@ -658,10 +626,12 @@ class App(ctk.CTk):
                     attended = int(attended_text)
                     lectures = int(lectures_text)
                 except ValueError:
-                    messagebox.showwarning("Invalid value", f"Enter whole lecture counts for {code}.")
+                    messagebox.showwarning("Invalid value",
+                                           f"Enter whole lecture counts for {code}.")
                     return
                 if lectures <= 0 or attended < 0 or attended > lectures:
-                    messagebox.showwarning("Invalid value", f"{code}: present must be between 0 and total lectures.")
+                    messagebox.showwarning("Invalid value",
+                                           f"{code}: present must be between 0 and total lectures.")
                     return
                 values[code] = (attended, lectures)
             database.set_attendance_bulk(student_id, values)
@@ -670,14 +640,12 @@ class App(ctk.CTk):
 
         btns = ctk.CTkFrame(win, fg_color="transparent")
         btns.pack(pady=15)
-        ctk.CTkButton(btns, text="Save", width=140, command=save).grid(row=0, column=0, padx=8)
+        ctk.CTkButton(btns, text="Save", width=140, command=_save).grid(row=0, column=0, padx=8)
         ctk.CTkButton(btns, text="Cancel", width=100, fg_color="gray40",
                       command=win.destroy).grid(row=0, column=1, padx=8)
-        win.bind("<Return>", lambda e: save())
+        win.bind("<Return>", lambda e: _save())
 
     def _prompt_pick_student(self):
-        """Small dialog to choose a student by roll no when none is
-        selected in the attendance table."""
         students = database.fetch_all_students()
         if not students:
             messagebox.showinfo("No Students", "Add a student first (Students tab).")
@@ -685,14 +653,14 @@ class App(ctk.CTk):
 
         win = ctk.CTkToplevel(self)
         win.title("Choose Student")
-        win.geometry("360x160")
+        win.geometry("380x170")
         win.resizable(False, False)
         _show_modal(win)
 
         ctk.CTkLabel(win, text="Roll No:").pack(pady=(20, 4))
         options = [f"{s['roll_no']} - {s['student_name']}" for s in students]
         picked = ctk.StringVar(value=options[0])
-        ctk.CTkOptionMenu(win, values=options, variable=picked, width=280).pack()
+        ctk.CTkOptionMenu(win, values=options, variable=picked, width=300).pack()
 
         result = {"student": None}
 
@@ -724,7 +692,8 @@ class App(ctk.CTk):
             self.def_tree.column(c, width=180, anchor="center")
         self.def_tree.pack(fill="both", expand=True, padx=10, pady=10)
 
-        ctk.CTkLabel(self.tab_generate, text="Letter info (used for all generated letters):").pack(pady=(10, 0))
+        ctk.CTkLabel(self.tab_generate,
+                     text="Letter info (used for all generated letters):").pack(pady=(10, 0))
 
         info = ctk.CTkFrame(self.tab_generate, fg_color="transparent")
         info.pack(pady=5)
@@ -752,10 +721,10 @@ class App(ctk.CTk):
         rows = database.list_defaulters(threshold)
         for s in rows:
             matrix = next(
-                entry for entry in database.get_attendance_matrix()
-                if entry["id"] == s["id"]
+                (entry for entry in database.get_attendance_matrix()
+                 if entry["id"] == s["id"]), None
             )
-            overall = matrix["overall_theory"] or 0
+            overall = matrix["overall_theory"] if matrix and matrix["overall_theory"] is not None else 0
             self.def_tree.insert("", "end", values=(
                 s["roll_no"], s["student_name"], f"{overall:.1f}", "Defaulter"
             ))
@@ -766,7 +735,7 @@ class App(ctk.CTk):
         if not os.path.exists(TEMPLATE_PATH):
             messagebox.showerror(
                 "Template Missing",
-                f"letter template not found at:\n{TEMPLATE_PATH}\n\n"
+                f"Letter template not found at:\n{TEMPLATE_PATH}\n\n"
                 "Place your template.docx next to the app (or in the exe's data folder).")
             return
 
@@ -804,10 +773,12 @@ class App(ctk.CTk):
                     "faculty_name": faculty,
                 }
 
-                tmp_docx = os.path.join(tempfile.gettempdir(), f"letter_{s['roll_no']}.docx")
+                tmp_docx = os.path.join(tempfile.gettempdir(),
+                                        f"letter_{s['roll_no']}.docx")
                 pdf_utils.fill_template(TEMPLATE_PATH, data, subjects, att, tmp_docx)
 
-                pdf_path = os.path.join(out_dir, f"Defaulter_Letter_{s['roll_no']}.pdf")
+                pdf_path = os.path.join(out_dir,
+                                        f"Defaulter_Letter_{s['roll_no']}.pdf")
                 result = pdf_utils.docx_to_pdf(tmp_docx, pdf_path)
                 if result and os.path.exists(result):
                     ok += 1
@@ -818,7 +789,7 @@ class App(ctk.CTk):
                 data["student_id"] = s["id"]
                 database.insert_letter(data)
 
-            except Exception as e:
+            except Exception:
                 log.exception("Letter generation failed for %s", s["roll_no"])
                 fail += 1
                 failures.append(s["roll_no"])
